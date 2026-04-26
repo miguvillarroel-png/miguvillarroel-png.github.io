@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Examen Parcial - Metodología de la Investigación | UMSS</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a3e6f 0%, #0e2a4a 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        .exam-header {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .exam-header h1 { color: #1a3e6f; font-size: 24px; margin-bottom: 10px; }
+        .exam-header h2 { color: #0e6b8c; font-size: 18px; font-weight: normal; margin-bottom: 15px; }
+        .student-info { background: #f0f4f8; padding: 15px; border-radius: 10px; margin-top: 15px; }
+        .student-info input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; margin-bottom: 10px; }
+        .timer-container { background: #1a3e6f; color: white; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
+        .timer { font-size: 48px; font-weight: bold; font-family: monospace; }
+        .timer-warning { animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .question-card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .question-text { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 15px; }
+        .options { list-style: none; padding-left: 0; }
+        .options li { margin-bottom: 12px; padding: 10px 15px; background: #f9f9f9; border-radius: 8px; cursor: pointer; border: 1px solid #e0e0e0; }
+        .options li:hover { background: #e8f4f8; border-color: #1a3e6f; }
+        .options li.selected { background: #1a3e6f; color: white; border-color: #1a3e6f; }
+        .btn-submit { background: #0e9e6e; color: white; border: none; padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 10px; cursor: pointer; width: 100%; margin-top: 20px; }
+        .btn-submit:hover { background: #0c7c56; }
+        .result-container { background: white; border-radius: 15px; padding: 30px; text-align: center; display: none; }
+        .score { font-size: 60px; font-weight: bold; color: #0e9e6e; margin: 20px 0; }
+        .instructions { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
+        .footer { text-align: center; color: rgba(255,255,255,0.7); margin-top: 30px; font-size: 12px; }
+        .loading { background: rgba(0,0,0,0.7); color: white; position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 1000; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="exam-header" id="header">
+            <h1>FACULTAD DE ENFERMERÍA - UMSS</h1>
+            <h2>Taller de Investigación | Examen Parcial</h2>
+            <div class="student-info">
+                <input type="text" id="studentName" placeholder="Nombres completos" autocomplete="off">
+                <input type="text" id="studentCode" placeholder="Código SIS (ej: 2020-123456)" autocomplete="off">
+                <button class="btn-submit" onclick="iniciarExamen()" style="background: #1a3e6f;">▶ Iniciar examen</button>
+            </div>
+        </div>
+        <!-- Resto del contenido igual que antes -->
+        <div id="timerContainer" style="display: none;">
+            <div class="timer-container">
+                <div>Tiempo restante</div>
+                <div class="timer" id="timer">18:00</div>
+            </div>
+        </div>
+        <div id="instructions" style="display: none;" class="instructions">
+            <strong>📋 Instrucciones</strong>
+            <ul>
+                <li>25 preguntas de selección múltiple</li>
+                <li>Tiempo límite: <strong>18 minutos</strong></li>
+                <li>Preguntas y opciones aleatorias</li>
+                <li>Toda respuesta se guarda automáticamente</li>
+            </ul>
+        </div>
+        <div id="questionsContainer"></div>
+        <div id="submitBtn" style="display: none;"><button class="btn-submit" onclick="entregarExamen()">📤 Entregar examen</button></div>
+        <div id="resultContainer" class="result-container"></div>
+        <div class="footer">Facultad de Enfermería - UMSS | Dr. Miguel Villarroel Canedo</div>
+    </div>
+    <div id="loading" class="loading"><div>Guardando resultado...<br>Por favor espere</div></div>
+
+    <script>
+        // ====================== CONFIGURACIÓN ======================
+        // 🔴 AQUÍ DEBE PEGAR LA URL DE SU APPS SCRIPT 🔴
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzA9WRa7rfpE2O9sQdFKR2Dgmq45LgCz-txpyvu2-JobYhpyJVdo-SIKfOYY5MzL4NELQ/exec";
+        
+        // ====================== PREGUNTAS ======================
+        const preguntasBase = [
+            {
+                texto: "De acuerdo con el desarrollo histórico de la epistemología, ¿qué característica distingue fundamentalmente al conocimiento científico del conocimiento empírico?",
+                opciones: ["Es innato", "Es sistemático y metódicamente verificado", "Solo se desarrolla en laboratorios", "Requiere formación universitaria"],
+                correcta: 1
+            },
+            {
+                texto: "En el ámbito de la investigación en enfermería, ¿cuál de los siguientes enunciados ejemplifica correctamente una pregunta orientada desde el enfoque cuantitativo?",
+                opciones: ["¿Cómo perciben los pacientes la calidad del cuidado?", "¿Cuál es la prevalencia de úlceras por presión?", "¿Qué significados atribuyen las madres a su parto?", "¿Cómo influye el entorno hospitalario?"],
+                correcta: 1
+            },
+            {
+                texto: "Al formular el planteamiento del problema de investigación, ¿qué elemento es indispensable para delimitar adecuadamente el estudio?",
+                opciones: ["Solo bibliografía reciente", "Gráficos estadísticos", "Población, contexto y variables", "Conclusiones anticipadas"],
+                correcta: 2
+            },
+            {
+                texto: "En la redacción de objetivos de investigación, ¿qué verbo sería apropiado para un objetivo general que busca establecer relaciones causales?",
+                opciones: ["Describir", "Conocer", "Comprender", "Determinar"],
+                correcta: 3
+            },
+            {
+                texto: "Según Kuhn (1962), un paradigma en investigación se define como:",
+                opciones: ["Un modelo estadístico", "Un conjunto de creencias que guían la investigación", "Una técnica de recolección de datos", "Un software especializado"],
+                correcta: 1
+            },
+            {
+                texto: "¿Cuál corresponde a un diseño de investigación cuantitativa observacional analítico?",
+                opciones: ["Ensayo clínico", "Estudio transversal descriptivo", "Estudio de cohortes", "Experimento de laboratorio"],
+                correcta: 2
+            },
+            {
+                texto: "En un estudio cuantitativo, la operacionalización de variables consiste en:",
+                opciones: ["Describir el fenómeno", "Transformar conceptos abstractos en indicadores medibles", "Seleccionar la muestra", "Establecer hipótesis"],
+                correcta: 1
+            },
+            {
+                texto: "Estudiante investiga 'factores asociados al abandono del tratamiento en tuberculosis'. Objetivo general más adecuado:",
+                opciones: ["Conocer las causas", "Analizar la problemática", "Identificar factores asociados en pacientes del Centro X, 2026", "Explicar el abandono"],
+                correcta: 2
+            },
+            {
+                texto: "¿Qué criterio diferencia al enfoque cualitativo del cuantitativo?",
+                opciones: ["Uso exclusivo de entrevistas", "Búsqueda de comprensión de significados", "Muestras probabilísticas grandes", "Formulación de hipótesis causales previas"],
+                correcta: 1
+            },
+            {
+                texto: "Función principal de los antecedentes en el marco teórico:",
+                opciones: ["Describir el centro de salud", "Presentar estudios previos que contextualizan", "Incluir solo autores bolivianos", "Explicar procedimientos estadísticos"],
+                correcta: 1
+            },
+            {
+                texto: "El conocimiento filosófico se caracteriza por:",
+                opciones: ["Ser verificable", "Utilidad práctica inmediata", "Enfoque trascendente y reflexivo", "Dependencia de la fe"],
+                correcta: 2
+            },
+            {
+                texto: "En un estudio transversal descriptivo, el investigador busca:",
+                opciones: ["Relaciones causales", "Describir frecuencia en un momento específico", "Seguir una cohorte", "Manipular variables"],
+                correcta: 1
+            },
+            {
+                texto: "Pregunta '¿Cuál es la experiencia de vivir con enfermedad renal?' corresponde al enfoque:",
+                opciones: ["Cuantitativo descriptivo", "Cuantitativo analítico", "Cualitativo fenomenológico", "Mixto secuencial"],
+                correcta: 2
+            },
+            {
+                texto: "¿Cuál NO es un tipo de conocimiento según la clasificación epistemológica?",
+                opciones: ["Empírico", "Estadístico", "Científico", "Filosófico"],
+                correcta: 1
+            },
+            {
+                texto: "En el método hipotético-deductivo, el orden correcto es:",
+                opciones: ["Observación→Hipótesis→Experimentación→Teoría", "Hipótesis→Observación→Teoría", "Teoría→Observación→Hipótesis", "Observación→Teoría→Hipótesis"],
+                correcta: 0
+            },
+            {
+                texto: "Un objetivo específico debe ser:",
+                opciones: ["Amplio y general", "Vago e impreciso", "Específico y medible", "Exclusivamente en tiempo futuro"],
+                correcta: 2
+            },
+            {
+                texto: "El conocimiento técnico en enfermería se manifiesta cuando el profesional:",
+                opciones: ["Reflexiona sobre el cuidado", "Aplica una técnica de canalización", "Lee un artículo científico", "Cree por tradición familiar"],
+                correcta: 1
+            },
+            {
+                texto: "Un estudio cuasi-experimental se diferencia del experimental porque:",
+                opciones: ["No usa grupo control", "No asigna aleatoriamente", "Solo en laboratorio", "No permite causalidad"],
+                correcta: 1
+            },
+            {
+                texto: "Sobre la hipótesis de investigación, es correcto que:",
+                opciones: ["Solo en cualitativo", "Es una predicción tentativa verificable", "No necesita ser contrastable", "Se formula al final"],
+                correcta: 1
+            },
+            {
+                texto: "La validez interna se refiere a:",
+                opciones: ["Generalizar resultados", "Precisión del instrumento", "Relación verdadera entre variables sin influencias extrañas", "Coherencia del marco teórico"],
+                correcta: 2
+            },
+            {
+                texto: "Principal limitación del estudio de casos y controles:",
+                opciones: ["Alto costo", "Sesgo de memoria", "No calcula asociación", "Muestras extremadamente grandes"],
+                correcta: 1
+            },
+            {
+                texto: "'Describir características de pacientes con diabetes' es un objetivo de nivel:",
+                opciones: ["Explicativo", "Predictivo", "Descriptivo", "Correlacional"],
+                correcta: 2
+            },
+            {
+                texto: "El conocimiento religioso en salud se caracteriza por:",
+                opciones: ["Basarse en evidencia", "Fundamentarse en la fe", "Ser incompatible con la ciencia", "Mayor validez que el empírico"],
+                correcta: 1
+            },
+            {
+                texto: "En un estudio de cohortes, el investigador:",
+                opciones: ["Selecciona casos y controles retrospectivamente", "Sigue expuestos y no expuestos en el tiempo", "Manipula la exposición", "Describe prevalencia"],
+                correcta: 1
+            },
+            {
+                texto: "Un planteamiento del problema es pertinente si:",
+                opciones: ["Es completamente novedoso", "Aborda un problema relevante e investigable", "Incluye hipótesis causales", "Está en tercera persona"],
+                correcta: 1
+            }
+        ];
+        
+        // Variables globales
+        let preguntasExamen = [], respuestasUsuario = [], tiempoRestante = 18 * 60, timerInterval, examenIniciado = false, datosEstudiante = {};
+        
+        function mezclarArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+        
+        function generarExamen() {
+            let seleccionadas = mezclarArray([...preguntasBase]).slice(0, 25);
+            return seleccionadas.map(p => {
+                let opcionesMezcladas = [...p.opciones];
+                let indicesMezclados = [...Array(p.opciones.length).keys()];
+                indicesMezclados = mezclarArray(indicesMezclados);
+                let nuevaCorrecta = indicesMezclados.indexOf(p.correcta);
+                return { texto: p.texto, opciones: indicesMezclados.map(i => p.opciones[i]), correcta: nuevaCorrecta };
+            });
+        }
+        
+        function renderizarPreguntas() {
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '';
+            preguntasExamen.forEach((pregunta, idx) => {
+                const card = document.createElement('div');
+                card.className = 'question-card';
+                card.id = `q-${idx}`;
+                card.innerHTML = `<div class="question-text">${idx + 1}. ${pregunta.texto}</div>
+                    <ul class="options">
+                        ${pregunta.opciones.map((op, optIdx) => `
+                            <li onclick="seleccionarRespuesta(${idx}, ${optIdx})" 
+                                style="${respuestasUsuario[idx] === optIdx ? 'background: #1a3e6f; color: white;' : ''}">
+                                ${String.fromCharCode(65 + optIdx)}. ${op}
+                            </li>
+                        `).join('')}
+                    </ul>`;
+                container.appendChild(card);
+            });
+        }
+        
+        function seleccionarRespuesta(preguntaIdx, opcionIdx) {
+            respuestasUsuario[preguntaIdx] = opcionIdx;
+            const card = document.getElementById(`q-${preguntaIdx}`);
+            const opciones = card.querySelectorAll('li');
+            opciones.forEach((opt, idx) => {
+                if (idx === opcionIdx) {
+                    opt.style.background = '#1a3e6f';
+                    opt.style.color = 'white';
+                } else {
+                    opt.style.background = '#f9f9f9';
+                    opt.style.color = '#333';
+                }
+            });
+        }
+        
+        function iniciarTimer() {
+            const timerElement = document.getElementById('timer');
+            timerInterval = setInterval(() => {
+                if (tiempoRestante <= 0) { clearInterval(timerInterval); entregarExamen(); }
+                else {
+                    tiempoRestante--;
+                    const minutos = Math.floor(tiempoRestante / 60);
+                    const segundos = tiempoRestante % 60;
+                    timerElement.textContent = `${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+                    if (tiempoRestante < 60) timerElement.classList.add('timer-warning');
+                }
+            }, 1000);
+        }
+        
+        async function enviarResultado(nota, aciertos) {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'flex';
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        codigo: datosEstudiante.codigo,
+                        nombre: datosEstudiante.nombre.toUpperCase(),
+                        nota: nota,
+                        aciertos: aciertos
+                    })
+                });
+                console.log("Resultado enviado");
+            } catch (error) {
+                console.error("Error al enviar:", error);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+        
+        function calcularNota() {
+            let aciertos = respuestasUsuario.filter((r, idx) => r === preguntasExamen[idx].correcta).length;
+            return { nota: (aciertos / preguntasExamen.length) * 100, aciertos };
+        }
+        
+        async function entregarExamen() {
+            if (timerInterval) clearInterval(timerInterval);
+            const { nota, aciertos } = calcularNota();
+            
+            document.getElementById('questionsContainer').style.display = 'none';
+            document.getElementById('submitBtn').style.display = 'none';
+            document.getElementById('timerContainer').style.display = 'none';
+            document.getElementById('instructions').style.display = 'none';
+            
+            const resultContainer = document.getElementById('resultContainer');
+            resultContainer.style.display = 'block';
+            resultContainer.innerHTML = `<h2>📊 EXAMEN FINALIZADO</h2>
+                <p><strong>Estudiante:</strong> ${datosEstudiante.nombre}</p>
+                <p><strong>Código SIS:</strong> ${datosEstudiante.codigo}</p>
+                <div class="score">${nota.toFixed(1)}%</div>
+                <p>✅ Aciertos: ${aciertos} de ${preguntasExamen.length}</p>
+                <p><strong>💡 Su nota ha sido registrada automáticamente en el sistema.</strong></p>
+                <button class="btn-submit" onclick="location.reload()" style="background: #1a3e6f;">🔄 Finalizar</button>`;
+            
+            await enviarResultado(nota.toFixed(1), aciertos);
+        }
+        
+        function iniciarExamen() {
+            const nombre = document.getElementById('studentName').value.trim();
+            const codigo = document.getElementById('studentCode').value.trim();
+            if (nombre === '' || codigo === '') { alert('Ingrese nombre y código SIS'); return; }
+            if (SCRIPT_URL === '') { alert('⚠️ Error de configuración: El examen no está conectado al sistema. Contacte al docente.'); return; }
+            
+            datosEstudiante = { nombre, codigo };
+            document.getElementById('header').style.display = 'none';
+            document.getElementById('timerContainer').style.display = 'block';
+            document.getElementById('instructions').style.display = 'block';
+            document.getElementById('submitBtn').style.display = 'block';
+            
+            preguntasExamen = generarExamen();
+            respuestasUsuario = new Array(preguntasExamen.length).fill(null);
+            renderizarPreguntas();
+            iniciarTimer();
+            examenIniciado = true;
+        }
+    </script>
+</body>
+</html>
